@@ -174,17 +174,29 @@ def get_results(job_id):
 
 def run_scraper_job(job_id, license_plate, part_name):
     """Background thread voor scraping"""
+    import signal
+    
+    def timeout_handler(signum, frame):
+        raise TimeoutError(f"Job {job_id} timed out after 120 seconds")
+    
     try:
         active_jobs[job_id]['status'] = 'running'
         
+        # Set job timeout to 2 minutes
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(120)
+        
         # Initialize scraper optimized for cloud environment
-        scraper = OnderdelenLijnScraper(headless=True, timeout=60)
+        scraper = OnderdelenLijnScraper(headless=True, timeout=30)
         
         try:
             # Run scraping with timeout protection
             print(f"🚀 Starting scrape for {license_plate} - {part_name}")
             results = scraper.scrape_parts(license_plate, part_name)
             print(f"✅ Scrape completed for {license_plate}")
+            
+            # Cancel timeout
+            signal.alarm(0)
             
             # Update job status
             active_jobs[job_id]['status'] = 'completed'
@@ -193,10 +205,17 @@ def run_scraper_job(job_id, license_plate, part_name):
         finally:
             scraper.close()
             
+    except TimeoutError as e:
+        print(f"⏰ Job timeout for {license_plate}: {str(e)}")
+        active_jobs[job_id]['status'] = 'failed'
+        active_jobs[job_id]['error'] = f"Job timed out after 120 seconds"
     except Exception as e:
         print(f"❌ Scrape failed for {license_plate}: {str(e)}")
         active_jobs[job_id]['status'] = 'failed'
         active_jobs[job_id]['error'] = str(e)
+    finally:
+        # Always cancel alarm
+        signal.alarm(0)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
