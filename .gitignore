@@ -12,9 +12,11 @@ venv.bak/
 
 # Scraper outputs
 *.db
-*.html
+debug_*.html
+debug_*.json
 *.json
-debug_*
+# Maar niet de templates
+!templates/*.html
 
 # IDE
 .vscode/

@@ -3,7 +3,7 @@
 Railway.app Web API wrapper voor OnderdelenLijn Scraper
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 import os
 import json
 import tempfile
@@ -11,14 +11,19 @@ from scraper_new import OnderdelenLijnScraper
 import threading
 import time
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
 # Store voor actieve scraping jobs
 active_jobs = {}
 
 @app.route('/')
 def home():
-    """Homepage met API documentatie"""
+    """Render dashboard"""
+    return render_template('dashboard.html')
+
+@app.route('/api/docs')
+def api_docs():
+    """API documentatie"""
     return """
     <h1>🚗 OnderdelenLijn Scraper API</h1>
     <h2>Endpoints:</h2>
@@ -143,7 +148,11 @@ def get_results(job_id):
     if not job['results']:
         return jsonify({"error": "No results available"}), 404
     
-    # Create temporary file
+    # Check if request wants JSON response (for dashboard)
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify(job['results'])
+    
+    # Otherwise send as file download
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(job['results'], f, indent=2, ensure_ascii=False)
         temp_file = f.name

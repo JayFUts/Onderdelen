@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 OnderdelenLijn Scraper Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --dark-bg: #1f2937;
+            --card-bg: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid #dee2e6;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 10px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .stats-card {
+            background: linear-gradient(135deg, var(--card-bg) 0%, #f8f9fa 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stats-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 24px;
+        }
+
+        .stats-icon.blue { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #2563eb; }
+        .stats-icon.green { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #10b981; }
+        .stats-icon.yellow { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #f59e0b; }
+        .stats-icon.red { background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #ef4444; }
+
+        .job-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .job-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.pending { background: #fef3c7; color: #92400e; }
+        .status-badge.running { background: #dbeafe; color: #1e40af; }
+        .status-badge.completed { background: #d1fae5; color: #065f46; }
+        .status-badge.failed { background: #fee2e2; color: #991b1b; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: #2563eb;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .results-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2563eb;
+        }
+
+        .price-tag {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #111827; color: #f9fafb; }
+            .card { background-color: #1f2937; }
+            .card-header { background: linear-gradient(135deg, #374151 0%, #1f2937 100%); }
+            .form-control, .form-select { background-color: #374151; color: #f9fafb; border-color: #4b5563; }
+            .job-item { background: #374151; }
+            .job-item:hover { background: #4b5563; }
+            .stats-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); }
+            .results-preview { background: #1f2937; }
+            .result-item { background: #374151; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-dark navbar-expand-lg mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-car me-2"></i>OnderdelenLijn Scraper
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-chart-line me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/api/docs"><i class="fas fa-code me-1"></i> API Docs</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="stats-card fade-in">
+                    <div class="stats-icon blue">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <h3 class="mb-0" id="totalJobs">0</h3>
+                    <p class="text-secondary mb-0">Totaal Jobs</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="stats-card fade-in" style="animation-delay: 0.1s">
+                    <div class="stats-icon green">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3 class="mb-0" id="completedJobs">0</h3>
+                    <p class="text-secondary mb-0">Voltooid</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="stats-card fade-in" style="animation-delay: 0.2s">
+                    <div class="stats-icon yellow">
+                        <i class="fas fa-spinner"></i>
+                    </div>
+                    <h3 class="mb-0" id="runningJobs">0</h3>
+                    <p class="text-secondary mb-0">Actief</p>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="stats-card fade-in" style="animation-delay: 0.3s">
+                    <div class="stats-icon red">
+                        <i class="fas fa-car"></i>
+                    </div>
+                    <h3 class="mb-0" id="totalParts">0</h3>
+                    <p class="text-secondary mb-0">Onderdelen</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- New Scrape Form -->
+            <div class="col-lg-4 mb-4">
+                <div class="card fade-in">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-search me-2"></i>Nieuwe Zoekopdracht</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="scrapeForm">
+                            <div class="mb-3">
+                                <label class="form-label">Kenteken</label>
+                                <input type="text" class="form-control" id="licensePlate" 
+                                    placeholder="XX-XX-XX" required 
+                                    pattern="[A-Za-z0-9-]+" 
+                                    maxlength="10">
+                                <small class="text-muted">Bijv: HF599X, 37-LK-BB</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Onderdeel</label>
+                                <select class="form-select" id="partType">
+                                    <option value="">Kies onderdeel...</option>
+                                    <option value="Motor">Motor</option>
+                                    <option value="Remschijf">Remschijf</option>
+                                    <option value="Deur">Deur</option>
+                                    <option value="Bumper">Bumper</option>
+                                    <option value="Velg">Velg</option>
+                                    <option value="Uitlaat">Uitlaat</option>
+                                    <option value="Radiateur">Radiateur</option>
+                                    <option value="Versnellingsbak">Versnellingsbak</option>
+                                    <option value="Koplamp">Koplamp</option>
+                                    <option value="Achterlicht">Achterlicht</option>
+                                    <option value="custom">Anders...</option>
+                                </select>
+                                <input type="text" class="form-control mt-2 d-none" id="customPart" 
+                                    placeholder="Vul onderdeel in...">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+                                <i class="fas fa-search me-2"></i>Start Scraping
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Recent Searches -->
+                <div class="card mt-4 fade-in" style="animation-delay: 0.4s">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recente Zoekopdrachten</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="recentSearches" class="list-group list-group-flush">
+                            <!-- Recent searches will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Jobs -->
+            <div class="col-lg-8 mb-4">
+                <div class="card fade-in" style="animation-delay: 0.2s">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Actieve Jobs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="activeJobs">
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>Nog geen actieve jobs. Start een nieuwe zoekopdracht!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Preview -->
+                <div class="card mt-4 fade-in d-none" id="resultsCard" style="animation-delay: 0.3s">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Resultaten</h5>
+                        <button class="btn btn-sm btn-outline-primary" id="downloadResults">
+                            <i class="fas fa-download me-1"></i>Download JSON
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="resultsPreview" class="results-preview">
+                            <!-- Results will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Dashboard JavaScript -->
+    <script>
+        // Global state
+        let activeJobsMap = new Map();
+        let completedResults = new Map();
+        let recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+
+        // Form handling
+        document.getElementById('partType').addEventListener('change', function() {
+            const customInput = document.getElementById('customPart');
+            if (this.value === 'custom') {
+                customInput.classList.remove('d-none');
+                customInput.required = true;
+            } else {
+                customInput.classList.add('d-none');
+                customInput.required = false;
+            }
+        });
+
+        // Submit form
+        document.getElementById('scrapeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const licensePlate = document.getElementById('licensePlate').value.toUpperCase();
+            const partType = document.getElementById('partType').value;
+            const customPart = document.getElementById('customPart').value;
+            const partName = partType === 'custom' ? customPart : partType;
+            
+            if (!partName) {
+                alert('Selecteer een onderdeel');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner"></span> Bezig...';
+            
+            try {
+                const response = await fetch('/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ license_plate: licensePlate, part_name: partName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Add to recent searches
+                    addRecentSearch(licensePlate, partName);
+                    
+                    // Start monitoring the job
+                    startJobMonitoring(data.job_id, licensePlate, partName);
+                    
+                    // Reset form
+                    document.getElementById('scrapeForm').reset();
+                    document.getElementById('customPart').classList.add('d-none');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-search me-2"></i>Start Scraping';
+            }
+        });
+
+        // Job monitoring
+        function startJobMonitoring(jobId, licensePlate, partName) {
+            activeJobsMap.set(jobId, {
+                id: jobId,
+                licensePlate,
+                partName,
+                status: 'started',
+                startTime: Date.now()
+            });
+            
+            updateActiveJobsDisplay();
+            updateStats();
+            
+            // Poll for status updates
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${jobId}`);
+                    const data = await response.json();
+                    
+                    const job = activeJobsMap.get(jobId);
+                    job.status = data.status;
+                    
+                    if (data.summary) {
+                        job.summary = data.summary;
+                    }
+                    
+                    updateActiveJobsDisplay();
+                    updateStats();
+                    
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(pollInterval);
+                        
+                        if (data.status === 'completed') {
+                            // Load results
+                            loadResults(jobId);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Status check failed:', error);
+                }
+            }, 2000); // Poll every 2 seconds
+        }
+
+        // Load and display results
+        async function loadResults(jobId) {
+            try {
+                const response = await fetch(`/results/${jobId}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const results = await response.json();
+                
+                completedResults.set(jobId, results);
+                displayResults(results);
+                
+                // Enable download button
+                document.getElementById('downloadResults').onclick = () => {
+                    downloadJSON(results, `onderdelen_${jobId}.json`);
+                };
+            } catch (error) {
+                console.error('Failed to load results:', error);
+            }
+        }
+
+        // Display results
+        function displayResults(results) {
+            const resultsCard = document.getElementById('resultsCard');
+            const resultsPreview = document.getElementById('resultsPreview');
+            
+            resultsCard.classList.remove('d-none');
+            resultsPreview.innerHTML = '';
+            
+            let totalParts = 0;
+            
+            for (const [category, parts] of Object.entries(results.categories || {})) {
+                if (parts.length === 0) continue;
+                
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'mb-3';
+                categoryDiv.innerHTML = `
+                    <h6 class="text-primary mb-2">${category} (${parts.length})</h6>
+                `;
+                
+                parts.slice(0, 5).forEach(part => {
+                    totalParts++;
+                    const partDiv = document.createElement('div');
+                    partDiv.className = 'result-item';
+                    partDiv.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">${part.title || 'Onbekend'}</h6>
+                                <small class="text-muted">
+                                    ${part.supplier || 'Onbekende leverancier'}
+                                    ${part.specifications?.Bouwjaar ? `• Jaar: ${part.specifications.Bouwjaar}` : ''}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <div class="price-tag">
+                                    ${typeof part.price === 'number' ? `€${part.price.toFixed(2)}` : part.price || 'N/A'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    categoryDiv.appendChild(partDiv);
+                });
+                
+                if (parts.length > 5) {
+                    categoryDiv.innerHTML += `<p class="text-center text-muted mt-2">... en ${parts.length - 5} meer</p>`;
+                }
+                
+                resultsPreview.appendChild(categoryDiv);
+            }
+            
+            // Update total parts counter
+            document.getElementById('totalParts').textContent = 
+                parseInt(document.getElementById('totalParts').textContent) + totalParts;
+        }
+
+        // Update active jobs display
+        function updateActiveJobsDisplay() {
+            const container = document.getElementById('activeJobs');
+            
+            if (activeJobsMap.size === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>Nog geen actieve jobs. Start een nieuwe zoekopdracht!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            activeJobsMap.forEach(job => {
+                const elapsed = Math.floor((Date.now() - job.startTime) / 1000);
+                const jobDiv = document.createElement('div');
+                jobDiv.className = 'job-item';
+                jobDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="fas fa-car me-2"></i>${job.licensePlate} - ${job.partName}
+                            </h6>
+                            <small class="text-muted">
+                                ${elapsed}s geleden gestart
+                                ${job.summary ? `• ${job.summary.total_parts} onderdelen gevonden` : ''}
+                            </small>
+                        </div>
+                        <span class="status-badge ${job.status}">
+                            ${job.status === 'running' ? '<span class="loading-spinner"></span>' : ''}
+                            ${job.status}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(jobDiv);
+            });
+        }
+
+        // Update statistics
+        function updateStats() {
+            const stats = {
+                total: activeJobsMap.size,
+                completed: 0,
+                running: 0
+            };
+            
+            activeJobsMap.forEach(job => {
+                if (job.status === 'completed') stats.completed++;
+                if (job.status === 'running' || job.status === 'started') stats.running++;
+            });
+            
+            document.getElementById('totalJobs').textContent = stats.total;
+            document.getElementById('completedJobs').textContent = stats.completed;
+            document.getElementById('runningJobs').textContent = stats.running;
+        }
+
+        // Recent searches
+        function addRecentSearch(licensePlate, partName) {
+            const search = { licensePlate, partName, timestamp: Date.now() };
+            recentSearches = [search, ...recentSearches.filter(s => 
+                s.licensePlate !== licensePlate || s.partName !== partName
+            )].slice(0, 5);
+            localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+            displayRecentSearches();
+        }
+
+        function displayRecentSearches() {
+            const container = document.getElementById('recentSearches');
+            
+            if (recentSearches.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center p-3">Geen recente zoekopdrachten</div>';
+                return;
+            }
+            
+            container.innerHTML = recentSearches.map(search => `
+                <a href="#" class="list-group-item list-group-item-action" 
+                   onclick="fillSearch('${search.licensePlate}', '${search.partName}'); return false;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${search.licensePlate}</strong> - ${search.partName}
+                        </div>
+                        <i class="fas fa-redo text-muted"></i>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        // Fill search form
+        function fillSearch(licensePlate, partName) {
+            document.getElementById('licensePlate').value = licensePlate;
+            const partSelect = document.getElementById('partType');
+            
+            // Check if part name is in select options
+            const option = Array.from(partSelect.options).find(opt => opt.value === partName);
+            if (option) {
+                partSelect.value = partName;
+                document.getElementById('customPart').classList.add('d-none');
+            } else {
+                partSelect.value = 'custom';
+                document.getElementById('customPart').classList.remove('d-none');
+                document.getElementById('customPart').value = partName;
+            }
+        }
+
+        // Download JSON
+        function downloadJSON(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize
+        displayRecentSearches();
+        updateStats();
+    </script>
+</body>
+</html>
