@@ -211,11 +211,11 @@ def run_scraper_job(job_id, license_plate, part_name):
             
             print("📍 WebDriver initialized successfully")
             
-            # Monitor job duration and enforce 2-minute limit  
+            # Monitor job duration and enforce 4-minute limit (increased from 2 minutes)
             def check_timeout():
                 while active_jobs[job_id]['status'] == 'running':
                     elapsed = time_module.time() - start_time
-                    if elapsed > 120:  # 2 minutes
+                    if elapsed > 240:  # 4 minutes (increased from 120 seconds)
                         print(f"⏰ Job timeout after {elapsed:.1f} seconds")
                         active_jobs[job_id]['status'] = 'failed'
                         active_jobs[job_id]['error'] = f"Job timed out after {elapsed:.1f} seconds"
