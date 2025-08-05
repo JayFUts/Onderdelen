@@ -76,10 +76,13 @@ class OnderdelenLijnScraper:
         chrome_options.add_argument('--aggressive-cache-discard')
         chrome_options.add_argument('--memory-pressure-off')
         
-        # Cloud container optimalisaties  
-        chrome_options.add_argument('--max_old_space_size=2048')
+        # Cloud container optimalisaties + Memory management
+        chrome_options.add_argument('--max_old_space_size=1024')  # Reduced from 2048 to prevent OOM
         chrome_options.add_argument('--disable-background-timer-throttling')
         chrome_options.add_argument('--disable-renderer-backgrounding')
+        chrome_options.add_argument('--memory-pressure-off')
+        chrome_options.add_argument('--max-old-space-size=512')  # Additional memory limit
+        chrome_options.add_argument('--js-flags=--max-old-space-size=512')  # V8 memory limit
         
         # Extra Railway.app compatibility
         chrome_options.add_argument('--disable-software-rasterizer')
@@ -493,6 +496,16 @@ class OnderdelenLijnScraper:
         
         return parts
     
+    def _check_driver_health(self):
+        """Check if WebDriver is still responsive"""
+        try:
+            # Simple check to see if driver is responsive
+            self.driver.current_url
+            return True
+        except Exception as e:
+            logging.error(f"Driver health check failed: {e}")
+            return False
+    
     def scrape_category_results(self, category_name, category_url, search_info):
         """
         Scrape alle resultaten van een categorie URL met paginatie
@@ -512,6 +525,11 @@ class OnderdelenLijnScraper:
         page_number = 1
         
         try:
+            # Check driver health before starting
+            if not self._check_driver_health():
+                logging.error(f"Driver unhealthy, skipping category: {category_name}")
+                return all_parts
+            
             # Navigeer naar categorie URL
             self.driver.get(category_url)
             time.sleep(3)
@@ -637,15 +655,29 @@ class OnderdelenLijnScraper:
                     logging.info("✗ Geen passende categorieën gevonden")
                     return results
                 
+                # Limit categories to prevent memory overload (max 3 categories)
+                if len(category_urls) > 3:
+                    logging.info(f"Limiting to first 3 categories (found {len(category_urls)})")
+                    category_urls = category_urls[:3]
+                
                 # Stap 4: Scrape elke categorie
                 search_info = results['search_info']
                 total_parts = 0
+                failed_categories = 0
                 
                 for category_name, category_url in category_urls:
+                    # Early exit if too many failures (likely driver crashed)
+                    if failed_categories >= 3:
+                        logging.error(f"Too many category failures ({failed_categories}), likely driver crash. Stopping scraping.")
+                        break
+                        
                     parts = self.scrape_category_results(category_name, category_url, search_info)
                     if parts:
                         results['categories'][category_name] = parts
                         total_parts += len(parts)
+                        failed_categories = 0  # Reset failure counter on success
+                    else:
+                        failed_categories += 1
                 
                 logging.info(f"\n✓ Scraping voltooid: {total_parts} onderdelen in {len(results['categories'])} categorieën")
             
