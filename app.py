@@ -173,24 +173,24 @@ def get_results(job_id):
     )
 
 def run_scraper_job(job_id, license_plate, part_name):
-    """Background thread voor scraping"""
-    import signal
-    
-    def timeout_handler(signum, frame):
-        raise TimeoutError(f"Job {job_id} timed out after 120 seconds")
+    """Background thread voor scraping - Server-compatible version"""
+    import threading
+    import time as time_module
     
     try:
         active_jobs[job_id]['status'] = 'running'
+        start_time = time_module.time()
         
-        # Set job timeout to 2 minutes
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(120)
-        
-        # Initialize scraper optimized for cloud environment
+        # Initialize scraper with built-in timeouts (server-compatible)
         scraper = OnderdelenLijnScraper(headless=True, timeout=30)
         
+        # Set additional Selenium timeouts for server environment
+        if scraper.driver:
+            scraper.driver.set_page_load_timeout(60)  # 60 seconds page load timeout
+            scraper.driver.implicitly_wait(10)  # 10 seconds implicit wait
+        
         try:
-            # Run scraping with timeout protection
+            # Run scraping with server-compatible approach
             print(f"🚀 Starting scrape for {license_plate} - {part_name}")
             print(f"📍 Python version: {__import__('sys').version}")
             print(f"📍 Current working directory: {__import__('os').getcwd()}")
@@ -210,30 +210,49 @@ def run_scraper_job(job_id, license_plate, part_name):
                 raise Exception("WebDriver failed to initialize")
             
             print("📍 WebDriver initialized successfully")
-            results = scraper.scrape_parts(license_plate, part_name)
-            print(f"✅ Scrape completed for {license_plate}")
             
-            # Cancel timeout
-            signal.alarm(0)
+            # Monitor job duration and enforce 2-minute limit  
+            def check_timeout():
+                while active_jobs[job_id]['status'] == 'running':
+                    elapsed = time_module.time() - start_time
+                    if elapsed > 120:  # 2 minutes
+                        print(f"⏰ Job timeout after {elapsed:.1f} seconds")
+                        active_jobs[job_id]['status'] = 'failed'
+                        active_jobs[job_id]['error'] = f"Job timed out after {elapsed:.1f} seconds"
+                        try:
+                            scraper.close()
+                        except:
+                            pass
+                        return
+                    time_module.sleep(5)  # Check every 5 seconds
+            
+            # Start timeout monitor in background
+            timeout_thread = threading.Thread(target=check_timeout, daemon=True)
+            timeout_thread.start()
+            
+            # Run the actual scraping
+            results = scraper.scrape_parts(license_plate, part_name) 
+            
+            # Check if job was timed out during scraping
+            if active_jobs[job_id]['status'] == 'failed':
+                return  # Job was timed out by monitor thread
+            
+            print(f"✅ Scrape completed for {license_plate}")
             
             # Update job status
             active_jobs[job_id]['status'] = 'completed'
             active_jobs[job_id]['results'] = results
             
         finally:
-            scraper.close()
+            try:
+                scraper.close()
+            except:
+                pass
             
-    except TimeoutError as e:
-        print(f"⏰ Job timeout for {license_plate}: {str(e)}")
-        active_jobs[job_id]['status'] = 'failed'
-        active_jobs[job_id]['error'] = f"Job timed out after 120 seconds"
     except Exception as e:
         print(f"❌ Scrape failed for {license_plate}: {str(e)}")
         active_jobs[job_id]['status'] = 'failed'
         active_jobs[job_id]['error'] = str(e)
-    finally:
-        # Always cancel alarm
-        signal.alarm(0)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

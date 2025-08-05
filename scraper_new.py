@@ -103,10 +103,15 @@ class OnderdelenLijnScraper:
             service = Service(driver_path)
             logging.info("Creating Chrome WebDriver...")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            # Set server-compatible timeouts
+            self.driver.set_page_load_timeout(self.timeout)
+            self.driver.implicitly_wait(10)  # 10 seconds implicit wait
+            
             logging.info("Setting up WebDriver properties...")
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             self.wait = WebDriverWait(self.driver, self.timeout)
-            logging.info("WebDriver geïnitialiseerd")
+            logging.info("WebDriver geïnitialiseerd met timeouts")
         except Exception as e:
             logging.error(f"Fout bij WebDriver setup: {e}", exc_info=True)
             raise
@@ -152,9 +157,9 @@ class OnderdelenLijnScraper:
         try:
             # Navigeer naar zoekpagina
             self.driver.get(self.search_url)
-            time.sleep(2)
             
-            # Handle cookies
+            # Wait for page to load and handle cookies
+            self.wait.until(EC.presence_of_element_located((By.ID, "objlicenseplate")))
             self._handle_cookies()
             
             # Vul kenteken in
@@ -165,11 +170,11 @@ class OnderdelenLijnScraper:
             license_input.send_keys(license_plate)
             
             # Submit met JavaScript voor reliability
-            submit_button = self.driver.find_element(By.CSS_SELECTOR, "input[type='submit'][value='Gegevens ophalen']")
+            submit_button = self.wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='submit'][value='Gegevens ophalen']")))
             self.driver.execute_script("arguments[0].click();", submit_button)
             
-            # Wacht op resultaten
-            time.sleep(3)
+            # Wait for results to appear instead of fixed sleep
+            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".result-item, .search-results-list")))
             
             # Zoek naar result-item met data-type attribuut
             result_items = self.driver.find_elements(By.CSS_SELECTOR, ".result-item[data-type]")
