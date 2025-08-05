@@ -159,6 +159,9 @@ class OnderdelenLijnScraper:
                 except:
                     print(f"✓ Modeltype gevonden: {modeltype}")
                 
+                # De website navigeert automatisch naar de onderdelenlijst
+                print("✓ Op onderdelenlijst pagina")
+                
                 return modeltype
             else:
                 print("⚠ Geen modeltype gevonden")
@@ -187,7 +190,7 @@ class OnderdelenLijnScraper:
     
     def find_category_urls(self, part_name):
         """
-        Vind alle categorie URLs die matchen met part_name
+        Vind alle categorie URLs die matchen met part_name uit search-results-list
         
         Args:
             part_name (str): Onderdeel naam om te zoeken
@@ -203,14 +206,40 @@ class OnderdelenLijnScraper:
         category_urls = []
         
         try:
-            # Zoek naar alle links die part_name bevatten (case-insensitive)
-            xpath_query = f"//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_name.lower()}')]"
-            matching_links = self.driver.find_elements(By.XPATH, xpath_query)
+            # Zoek eerst naar alle links in de search-results-list
+            search_result_links = self.driver.find_elements(By.CSS_SELECTOR, ".search-results-list a")
             
-            # Fallback: zoek ook in href attributen
+            if not search_result_links:
+                # Fallback: zoek in #parts .search-results-list a
+                search_result_links = self.driver.find_elements(By.CSS_SELECTOR, "#parts .search-results-list a")
+            
+            if not search_result_links:
+                # Fallback: zoek links met data-search attribute
+                search_result_links = self.driver.find_elements(By.CSS_SELECTOR, "a[data-search]")
+            
+            print(f"  Gevonden {len(search_result_links)} category links op pagina")
+            
+            # Filter links die matchen met part_name
+            matching_links = []
+            for link in search_result_links:
+                try:
+                    link_text = link.text.lower()
+                    part_lower = part_name.lower()
+                    
+                    # Check verschillende variaties
+                    if (part_lower in link_text or 
+                        link_text in part_lower or
+                        part_lower.rstrip('s') in link_text or  # "Velg" matches "Velgen"
+                        link_text.rstrip('s') in part_lower or  # "Velgen" matches "Velg"
+                        part_lower.rstrip('en') in link_text):  # "Velg" matches "Velgen"
+                        matching_links.append(link)
+                except:
+                    continue
+            
             if not matching_links:
-                formatted_part_name = part_name.lower().replace(' ', '-')
-                matching_links = self.driver.find_elements(By.XPATH, f"//a[contains(@href, '{formatted_part_name}')]")
+                # Nog breder zoeken in alle links die part_name bevatten
+                xpath_query = f"//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_name.lower()}')]"
+                matching_links = self.driver.find_elements(By.XPATH, xpath_query)
             
             for link in matching_links:
                 try:
@@ -472,7 +501,7 @@ class OnderdelenLijnScraper:
             
             results['search_info']['modeltype'] = modeltype
             
-            # We zijn nu op de auto-specifieke pagina
+            # Na modeltype lookup zijn we nu op de onderdelenlijst pagina
             # Stap 2: Detecteer pagina type
             page_type = self.detect_page_type()
             
