@@ -59,6 +59,11 @@ class OnderdelenLijnScraper:
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
         
+        # Timeouts voor productie omgeving
+        chrome_options.add_argument('--page-load-strategy=eager')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-plugins')
+        
         # User-Agent voor bot detectie vermijding
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         

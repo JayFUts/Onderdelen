@@ -177,12 +177,14 @@ def run_scraper_job(job_id, license_plate, part_name):
     try:
         active_jobs[job_id]['status'] = 'running'
         
-        # Initialize scraper
+        # Initialize scraper with timeout
         scraper = OnderdelenLijnScraper(headless=True)
         
         try:
-            # Run scraping
+            # Run scraping with timeout protection
+            print(f"🚀 Starting scrape for {license_plate} - {part_name}")
             results = scraper.scrape_parts(license_plate, part_name)
+            print(f"✅ Scrape completed for {license_plate}")
             
             # Update job status
             active_jobs[job_id]['status'] = 'completed'
@@ -192,6 +194,7 @@ def run_scraper_job(job_id, license_plate, part_name):
             scraper.close()
             
     except Exception as e:
+        print(f"❌ Scrape failed for {license_plate}: {str(e)}")
         active_jobs[job_id]['status'] = 'failed'
         active_jobs[job_id]['error'] = str(e)
 
