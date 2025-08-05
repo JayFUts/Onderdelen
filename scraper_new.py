@@ -8,6 +8,8 @@ import json
 import time
 import re
 import argparse
+import logging
+import sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -17,6 +19,13 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from bs4 import BeautifulSoup
+
+# Configureer logging om naar de console (stdout) te schrijven
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - SCRAPER - %(levelname)s - %(message)s',
+    stream=sys.stdout  # Zorgt ervoor dat het in Railway logs verschijnt
+)
 
 
 class OnderdelenLijnScraper:
@@ -50,9 +59,9 @@ class OnderdelenLijnScraper:
         if headless:
             chrome_options.add_argument('--headless')
         
-        # Performance en reliability optimalisaties
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
+        # Performance en reliability optimalisaties - ESSENTIEEL voor Railway/Docker
+        chrome_options.add_argument('--no-sandbox')  # Essentieel voor Railway/Docker
+        chrome_options.add_argument('--disable-dev-shm-usage')  # Essentieel voor Railway/Docker  
         chrome_options.add_argument('--disable-gpu')
         chrome_options.add_argument('--window-size=1920,1080')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
@@ -87,19 +96,19 @@ class OnderdelenLijnScraper:
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
         try:
-            print("📍 Installing ChromeDriver...")
+            logging.info("Installing ChromeDriver...")
             driver_path = ChromeDriverManager().install()
-            print(f"📍 ChromeDriver path: {driver_path}")
+            logging.info(f"ChromeDriver path: {driver_path}")
             
             service = Service(driver_path)
-            print("📍 Creating Chrome WebDriver...")
+            logging.info("Creating Chrome WebDriver...")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            print("📍 Setting up WebDriver properties...")
+            logging.info("Setting up WebDriver properties...")
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             self.wait = WebDriverWait(self.driver, self.timeout)
-            print("✓ WebDriver geïnitialiseerd")
+            logging.info("WebDriver geïnitialiseerd")
         except Exception as e:
-            print(f"✗ Fout bij WebDriver setup: {e}")
+            logging.error(f"Fout bij WebDriver setup: {e}", exc_info=True)
             raise
     
     def _handle_cookies(self):
@@ -121,7 +130,7 @@ class OnderdelenLijnScraper:
                 for element in elements:
                     if element.is_displayed() and element.is_enabled():
                         self.driver.execute_script("arguments[0].click();", element)
-                        print("✓ Cookie popup gesloten")
+                        logging.info("Cookie popup gesloten")
                         time.sleep(1)
                         return True
             except Exception:
@@ -138,7 +147,7 @@ class OnderdelenLijnScraper:
         Returns:
             str: Modeltype ID of None bij falen
         """
-        print(f"→ Modeltype dynamisch ophalen voor kenteken {license_plate}...")
+        logging.info(f"Modeltype dynamisch ophalen voor kenteken {license_plate}...")
         
         try:
             # Navigeer naar zoekpagina
@@ -171,21 +180,21 @@ class OnderdelenLijnScraper:
                 # Extract auto info
                 try:
                     car_name = result_items[0].find_element(By.TAG_NAME, "span").text
-                    print(f"✓ Modeltype gevonden: {modeltype}")
-                    print(f"  Auto: {car_name}")
+                    logging.info(f"Modeltype gevonden: {modeltype}")
+                    logging.info(f"Auto: {car_name}")
                 except:
-                    print(f"✓ Modeltype gevonden: {modeltype}")
+                    logging.info(f"Modeltype gevonden: {modeltype}")
                 
                 # De website navigeert automatisch naar de onderdelenlijst
-                print("✓ Op onderdelenlijst pagina")
+                logging.info("Op onderdelenlijst pagina")
                 
                 return modeltype
             else:
-                print("⚠ Geen modeltype gevonden")
+                logging.warning("Geen modeltype gevonden")
                 return None
                 
         except Exception as e:
-            print(f"⚠ Fout bij dynamische modeltype lookup: {e}")
+            logging.error(f"Fout bij dynamische modeltype lookup: {e}", exc_info=True)
             return None
     
     def detect_page_type(self):
@@ -199,10 +208,10 @@ class OnderdelenLijnScraper:
         results_list = self.driver.find_elements(By.CSS_SELECTOR, "ul#result-list")
         
         if results_list:
-            print("✓ Results page gedetecteerd")
+            logging.info("Results page gedetecteerd")
             return 'results'
         else:
-            print("✓ Category page gedetecteerd")
+            logging.info("Category page gedetecteerd")
             return 'category'
     
     def find_category_urls(self, part_name):
@@ -215,7 +224,7 @@ class OnderdelenLijnScraper:
         Returns:
             list: Lijst van (category_name, url) tuples
         """
-        print(f"→ Zoeken naar categorieën voor '{part_name}'...")
+        logging.info(f"→ Zoeken naar categorieën voor '{part_name}'...")
         
         # Handle cookies eerst
         self._handle_cookies()
@@ -234,7 +243,7 @@ class OnderdelenLijnScraper:
                 # Fallback: zoek links met data-search attribute
                 search_result_links = self.driver.find_elements(By.CSS_SELECTOR, "a[data-search]")
             
-            print(f"  Gevonden {len(search_result_links)} category links op pagina")
+            logging.info(f"  Gevonden {len(search_result_links)} category links op pagina")
             
             # Filter links die matchen met part_name
             matching_links = []
@@ -273,14 +282,14 @@ class OnderdelenLijnScraper:
                 except Exception as e:
                     continue
             
-            print(f"✓ Gevonden {len(category_urls)} categorie(s) voor '{part_name}'")
+            logging.info(f"✓ Gevonden {len(category_urls)} categorie(s) voor '{part_name}'")
             for i, (title, url) in enumerate(category_urls[:3], 1):
-                print(f"  {i}. {title}")
+                logging.info(f"  {i}. {title}")
             
             return category_urls
             
         except Exception as e:
-            print(f"⚠ Fout bij categorie zoeken: {e}")
+            logging.info(f"⚠ Fout bij categorie zoeken: {e}")
             return []
     
     def extract_part_data(self, soup, search_info):
@@ -391,7 +400,7 @@ class OnderdelenLijnScraper:
                     parts.append(part_data)
                     
             except Exception as e:
-                print(f"⚠ Fout bij parsen onderdeel: {e}")
+                logging.info(f"⚠ Fout bij parsen onderdeel: {e}")
                 continue
         
         return parts
@@ -408,8 +417,8 @@ class OnderdelenLijnScraper:
         Returns:
             list: Alle gevonden onderdelen
         """
-        print(f"→ Scraping categorie: {category_name}")
-        print(f"  URL: {category_url}")
+        logging.info(f"→ Scraping categorie: {category_name}")
+        logging.info(f"  URL: {category_url}")
         
         all_parts = []
         page_number = 1
@@ -424,7 +433,7 @@ class OnderdelenLijnScraper:
             
             # Paginatie loop
             while True:
-                print(f"  → Pagina {page_number} verwerken...")
+                logging.info(f"  → Pagina {page_number} verwerken...")
                 
                 # Parse huidige pagina
                 soup = BeautifulSoup(self.driver.page_source, 'lxml')
@@ -432,7 +441,7 @@ class OnderdelenLijnScraper:
                 page_parts = self.extract_part_data(soup, search_info_with_category)
                 
                 all_parts.extend(page_parts)
-                print(f"    ✓ {len(page_parts)} onderdelen gevonden")
+                logging.info(f"    ✓ {len(page_parts)} onderdelen gevonden")
                 
                 # Zoek naar volgende pagina knop
                 try:
@@ -444,7 +453,7 @@ class OnderdelenLijnScraper:
                     
                     # Check of knop enabled is
                     if not next_button.is_enabled() or next_button.get_attribute('disabled'):
-                        print("    ✓ Laatste pagina bereikt")
+                        logging.info("    ✓ Laatste pagina bereikt")
                         break
                     
                     # Scroll naar knop en klik
@@ -468,21 +477,21 @@ class OnderdelenLijnScraper:
                     
                     # Safety limit
                     if page_number > 50:
-                        print("    ⚠ Pagina limiet bereikt (50)")
+                        logging.info("    ⚠ Pagina limiet bereikt (50)")
                         break
                         
                 except NoSuchElementException:
-                    print("    ✓ Geen volgende pagina knop gevonden")
+                    logging.info("    ✓ Geen volgende pagina knop gevonden")
                     break
                 except Exception as e:
-                    print(f"    ⚠ Fout bij paginatie: {e}")
+                    logging.info(f"    ⚠ Fout bij paginatie: {e}")
                     break
             
-            print(f"✓ Categorie '{category_name}' voltooid: {len(all_parts)} onderdelen over {page_number} pagina(s)")
+            logging.info(f"✓ Categorie '{category_name}' voltooid: {len(all_parts)} onderdelen over {page_number} pagina(s)")
             return all_parts
             
         except Exception as e:
-            print(f"✗ Fout bij scraping categorie '{category_name}': {e}")
+            logging.info(f"✗ Fout bij scraping categorie '{category_name}': {e}")
             return all_parts
     
     def scrape_parts(self, license_plate, part_name):
@@ -496,8 +505,8 @@ class OnderdelenLijnScraper:
         Returns:
             dict: Resultaten georganiseerd per categorie
         """
-        print(f"\n🔍 Zoeken naar: {part_name}")
-        print(f"📋 Kenteken: {license_plate}\n")
+        logging.info(f"\n🔍 Zoeken naar: {part_name}")
+        logging.info(f"📋 Kenteken: {license_plate}\n")
         
         results = {
             'search_info': {
@@ -513,7 +522,7 @@ class OnderdelenLijnScraper:
             modeltype = self.get_modeltype_dynamically(license_plate)
             
             if not modeltype:
-                print("✗ Kon modeltype niet bepalen")
+                logging.info("✗ Kon modeltype niet bepalen")
                 return results
             
             results['search_info']['modeltype'] = modeltype
@@ -524,12 +533,12 @@ class OnderdelenLijnScraper:
             
             if page_type == 'results':
                 # Direct results - scrape huidige pagina
-                print("→ Direct resultaten scrapen...")
+                logging.info("→ Direct resultaten scrapen...")
                 search_info = results['search_info']
                 soup = BeautifulSoup(self.driver.page_source, 'lxml')
                 parts = self.extract_part_data(soup, search_info)
                 results['categories']['Direct Results'] = parts
-                print(f"✓ {len(parts)} onderdelen gevonden")
+                logging.info(f"✓ {len(parts)} onderdelen gevonden")
                 
             else:
                 # Category page - zoek en scrape categorieën
@@ -537,7 +546,7 @@ class OnderdelenLijnScraper:
                 category_urls = self.find_category_urls(part_name)
                 
                 if not category_urls:
-                    print("✗ Geen passende categorieën gevonden")
+                    logging.info("✗ Geen passende categorieën gevonden")
                     return results
                 
                 # Stap 4: Scrape elke categorie
@@ -550,10 +559,10 @@ class OnderdelenLijnScraper:
                         results['categories'][category_name] = parts
                         total_parts += len(parts)
                 
-                print(f"\n✓ Scraping voltooid: {total_parts} onderdelen in {len(results['categories'])} categorieën")
+                logging.info(f"\n✓ Scraping voltooid: {total_parts} onderdelen in {len(results['categories'])} categorieën")
             
         except Exception as e:
-            print(f"✗ Fout bij scraping: {e}")
+            logging.info(f"✗ Fout bij scraping: {e}")
         
         return results
     
@@ -577,11 +586,11 @@ class OnderdelenLijnScraper:
             
             # Summary
             total_parts = sum(len(parts) for parts in results['categories'].values())
-            print(f"\n✓ Resultaten opgeslagen in: {filename}")
-            print(f"📊 Totaal: {total_parts} onderdelen in {len(results['categories'])} categorieën")
+            logging.info(f"\n✓ Resultaten opgeslagen in: {filename}")
+            logging.info(f"📊 Totaal: {total_parts} onderdelen in {len(results['categories'])} categorieën")
             
         except Exception as e:
-            print(f"✗ Fout bij opslaan: {e}")
+            logging.info(f"✗ Fout bij opslaan: {e}")
     
     def close(self):
         """
@@ -589,7 +598,7 @@ class OnderdelenLijnScraper:
         """
         if self.driver:
             self.driver.quit()
-            print("✓ WebDriver gesloten")
+            logging.info("✓ WebDriver gesloten")
 
 
 def main():
@@ -624,9 +633,9 @@ Voorbeelden:
         scraper.save_results(results, args.output)
         
     except KeyboardInterrupt:
-        print("\n⚠ Scraping onderbroken door gebruiker")
+        logging.info("\n⚠ Scraping onderbroken door gebruiker")
     except Exception as e:
-        print(f"✗ Onverwachte fout: {e}")
+        logging.info(f"✗ Onverwachte fout: {e}")
     finally:
         # Zorg dat WebDriver altijd wordt gesloten
         scraper.close()
