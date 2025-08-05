@@ -177,8 +177,8 @@ def run_scraper_job(job_id, license_plate, part_name):
     try:
         active_jobs[job_id]['status'] = 'running'
         
-        # Initialize scraper with timeout
-        scraper = OnderdelenLijnScraper(headless=True)
+        # Initialize scraper optimized for cloud environment
+        scraper = OnderdelenLijnScraper(headless=True, timeout=60)
         
         try:
             # Run scraping with timeout protection

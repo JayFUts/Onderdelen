@@ -63,6 +63,14 @@ class OnderdelenLijnScraper:
         chrome_options.add_argument('--page-load-strategy=eager')
         chrome_options.add_argument('--disable-extensions')
         chrome_options.add_argument('--disable-plugins')
+        chrome_options.add_argument('--disable-images')  # Sneller laden
+        chrome_options.add_argument('--aggressive-cache-discard')
+        chrome_options.add_argument('--memory-pressure-off')
+        
+        # Cloud container optimalisaties  
+        chrome_options.add_argument('--max_old_space_size=2048')
+        chrome_options.add_argument('--disable-background-timer-throttling')
+        chrome_options.add_argument('--disable-renderer-backgrounding')
         
         # User-Agent voor bot detectie vermijding
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
