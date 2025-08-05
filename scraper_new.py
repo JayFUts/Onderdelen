@@ -92,8 +92,13 @@ class OnderdelenLijnScraper:
         chrome_options.add_argument('--disable-web-security')
         chrome_options.add_argument('--allow-running-insecure-content')
         
-        # User-Agent voor bot detectie vermijding
-        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        # ENHANCED User-Agent voor bot detectie vermijding - modern en common
+        chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0')
+        
+        # Additional bot detection avoidance
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
         
         try:
             logging.info("Installing ChromeDriver...")
@@ -141,6 +146,44 @@ class OnderdelenLijnScraper:
             except Exception:
                 continue
         return False
+    
+    def _debug_save_artifacts(self, error_type, part_name=None):
+        """
+        CRITICAL DEBUG FUNCTION: Save screenshot and page source when issues occur
+        This helps diagnose bot detection, CAPTCHAs, unexpected popups, or layout changes
+        """
+        import os
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        
+        try:
+            # MOST IMPORTANT: Save screenshot to see what the browser actually shows
+            screenshot_name = f"debug_screenshot_{error_type}_{timestamp}.png"
+            self.driver.save_screenshot(screenshot_name)
+            logging.error(f"  🖼️ DEBUG: Screenshot saved as {screenshot_name}")
+            
+            # Save page source to analyze HTML structure
+            page_source_name = f"debug_page_source_{error_type}_{timestamp}.html"
+            with open(page_source_name, 'w', encoding='utf-8') as f:
+                f.write(self.driver.page_source)
+            logging.error(f"  📄 DEBUG: Page source saved as {page_source_name}")
+            
+            # Log current URL and basic info
+            current_url = self.driver.current_url
+            page_title = self.driver.title
+            logging.error(f"  🌐 DEBUG: Current URL: {current_url}")
+            logging.error(f"  📝 DEBUG: Page title: {page_title}")
+            
+            if part_name:
+                logging.error(f"  🔍 DEBUG: Searching for part: {part_name}")
+            
+            # Log window size and viewport
+            window_size = self.driver.get_window_size()
+            logging.error(f"  📏 DEBUG: Window size: {window_size}")
+            
+        except Exception as e:
+            logging.error(f"  ❌ DEBUG: Failed to save artifacts: {e}")
+        
+        logging.error("  💡 DEBUG: Check the saved screenshot and HTML file to diagnose the issue")
     
     def get_modeltype_dynamically(self, license_plate):
         """
@@ -237,54 +280,80 @@ class OnderdelenLijnScraper:
         category_urls = []
         
         try:
-            # ULTRA-GEOPTIMALISEERD: Gebruik HTML-structuur specifieke XPath selectors
+            # ROBUST MULTI-STAGE WAITING STRATEGY
             part_lower = part_name.lower()
             
-            # Gebaseerd op werkelijke HTML structuur: <a title="...Remschijf..." data-search="..."><span>Remschijf...</span></a>
+            # STAGE 1: Wait for the main container to exist (confirms page structure loaded)
+            logging.info(f"  🔍 STAGE 1: Wachten op search-results-list container...")
+            container_wait = WebDriverWait(self.driver, 20)  # Longer wait for container
+            
+            try:
+                container = container_wait.until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.search-results-list, div[class*='search-results-list']"))
+                )
+                logging.info(f"  ✅ STAGE 1: Container gevonden - pagina structuur geladen")
+                
+                # Give dynamic content time to populate
+                time.sleep(2)
+                
+            except TimeoutException:
+                logging.error("  ❌ STAGE 1 FAILED: Container niet gevonden - mogelijk bot detection of andere pagina")
+                self._debug_save_artifacts("stage1_container_timeout")
+                return []
+            
+            # STAGE 2: Now search for specific links within the confirmed container
+            logging.info(f"  🔍 STAGE 2: Zoeken naar specifieke links voor '{part_name}'...")
+            
+            # Optimized XPath patterns focusing on confirmed container
             xpath_patterns = [
-                # SNELSTE: Zoek op title attribute binnen search-results-list container
+                # MOST RELIABLE: Search within confirmed container using title attribute
                 f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
                 
-                # SNEL: Zoek op span text binnen search-results-list
+                # RELIABLE: Search within container using span text
                 f"//div[contains(@class, 'search-results-list')]//a[contains(translate(span/text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
                 
-                # FUZZY MATCH: Zonder 's' voor woorden zoals "Velg" vs "Velgen"
+                # FUZZY: Match without 's' (Velg vs Velgen)
                 f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('s')}')]",
                 
-                # FUZZY MATCH: Zonder 'en' voor woorden zoals "Velg" vs "Velgen"  
+                # FUZZY: Match without 'en' (Velg vs Velgen)
                 f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('en')}')]",
                 
-                # BREDE FALLBACK: Alle links met keyword in title (buiten container)
+                # BROAD FALLBACK: Any link with keyword
                 f"//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]"
             ]
             
             matching_links = []
-            
-            # Ultra-snelle zoektocht met korte timeouts
-            lightning_wait = WebDriverWait(self.driver, 3)  # Nog sneller: 3 seconden
-            
             start_time = time.time()
+            
+            # Stage 2: Search for specific links with shorter timeout (container already confirmed)
+            pattern_wait = WebDriverWait(self.driver, 10)
             
             for i, xpath_pattern in enumerate(xpath_patterns):
                 try:
-                    logging.info(f"  🔍 Patroon {i+1}/{len(xpath_patterns)}: Direct browser filtering...")
+                    logging.info(f"  🔍 STAGE 2 Patroon {i+1}/{len(xpath_patterns)}: Specifieke link zoektocht...")
                     
-                    # Laat de browser het zware werk doen
-                    matches = lightning_wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_pattern)))
+                    # Search within confirmed container structure
+                    matches = pattern_wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_pattern)))
                     
                     if matches:
                         elapsed = time.time() - start_time
                         matching_links = matches
-                        logging.info(f"  ⚡ RAZENDSNEL: {len(matching_links)} links in {elapsed:.2f}s (patroon {i+1})")
+                        logging.info(f"  ⚡ STAGE 2 SUCCESS: {len(matching_links)} links gevonden in {elapsed:.2f}s (patroon {i+1})")
                         break
                         
                 except TimeoutException:
                     elapsed = time.time() - start_time
-                    logging.info(f"  Patroon {i+1}: Geen matches na {elapsed:.2f}s")
+                    logging.info(f"  ⏱️ Patroon {i+1}: Timeout na {elapsed:.2f}s - probeer volgende patroon")
                     continue
                 except Exception as e:
-                    logging.info(f"  Patroon {i+1}: Error - {e}")
+                    logging.error(f"  ❌ Patroon {i+1}: Unexpected error - {e}")
                     continue
+            
+            # If no matches found after all patterns, perform debugging
+            if not matching_links:
+                logging.error(f"  ❌ STAGE 2 FAILED: Geen matches gevonden voor '{part_name}' - debug artifacts worden opgeslagen")
+                self._debug_save_artifacts("stage2_no_matches", part_name)
+                return []
             
             for link in matching_links:
                 try:
