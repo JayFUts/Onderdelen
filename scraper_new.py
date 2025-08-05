@@ -237,36 +237,50 @@ class OnderdelenLijnScraper:
         category_urls = []
         
         try:
-            # GEOPTIMALISEERD: Gebruik XPath om direct de juiste links te vinden
+            # ULTRA-GEOPTIMALISEERD: Gebruik HTML-structuur specifieke XPath selectors
             part_lower = part_name.lower()
             
-            # Bouw een slimme XPath die meerdere variaties probeert
+            # Gebaseerd op werkelijke HTML structuur: <a title="...Remschijf..." data-search="..."><span>Remschijf...</span></a>
             xpath_patterns = [
-                # Exacte match in search-results-list
-                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
-                # Match zonder 's' (Velg vs Velgen)
-                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('s')}')]",
-                # Match zonder 'en' (Velg vs Velgen)  
-                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('en')}')]",
-                # Fallback naar alle links met part name
-                f"//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]"
+                # SNELSTE: Zoek op title attribute binnen search-results-list container
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
+                
+                # SNEL: Zoek op span text binnen search-results-list
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(span/text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
+                
+                # FUZZY MATCH: Zonder 's' voor woorden zoals "Velg" vs "Velgen"
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('s')}')]",
+                
+                # FUZZY MATCH: Zonder 'en' voor woorden zoals "Velg" vs "Velgen"  
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('en')}')]",
+                
+                # BREDE FALLBACK: Alle links met keyword in title (buiten container)
+                f"//a[contains(translate(@title, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]"
             ]
             
             matching_links = []
             
-            # Probeer elke XPath pattern totdat we matches vinden (met korte timeout)
-            short_wait = WebDriverWait(self.driver, 5)  # Korte timeout voor snelheid
+            # Ultra-snelle zoektocht met korte timeouts
+            lightning_wait = WebDriverWait(self.driver, 3)  # Nog sneller: 3 seconden
+            
+            start_time = time.time()
             
             for i, xpath_pattern in enumerate(xpath_patterns):
                 try:
-                    logging.info(f"  Patroon {i+1}/{len(xpath_patterns)}: Zoeken naar '{part_name}'...")
-                    matches = short_wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_pattern)))
+                    logging.info(f"  🔍 Patroon {i+1}/{len(xpath_patterns)}: Direct browser filtering...")
+                    
+                    # Laat de browser het zware werk doen
+                    matches = lightning_wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_pattern)))
+                    
                     if matches:
+                        elapsed = time.time() - start_time
                         matching_links = matches
-                        logging.info(f"  ✓ SNEL gevonden: {len(matching_links)} matches in patroon {i+1}")
+                        logging.info(f"  ⚡ RAZENDSNEL: {len(matching_links)} links in {elapsed:.2f}s (patroon {i+1})")
                         break
+                        
                 except TimeoutException:
-                    logging.info(f"  Patroon {i+1}: Geen matches (timeout na 5s)")
+                    elapsed = time.time() - start_time
+                    logging.info(f"  Patroon {i+1}: Geen matches na {elapsed:.2f}s")
                     continue
                 except Exception as e:
                     logging.info(f"  Patroon {i+1}: Error - {e}")
