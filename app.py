@@ -192,6 +192,11 @@ def run_scraper_job(job_id, license_plate, part_name):
         try:
             # Run scraping with timeout protection
             print(f"🚀 Starting scrape for {license_plate} - {part_name}")
+            
+            # Check if scraper initialized properly
+            if not scraper.driver:
+                raise Exception("WebDriver failed to initialize")
+            
             results = scraper.scrape_parts(license_plate, part_name)
             print(f"✅ Scrape completed for {license_plate}")
             
