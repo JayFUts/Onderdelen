@@ -192,11 +192,24 @@ def run_scraper_job(job_id, license_plate, part_name):
         try:
             # Run scraping with timeout protection
             print(f"🚀 Starting scrape for {license_plate} - {part_name}")
+            print(f"📍 Python version: {__import__('sys').version}")
+            print(f"📍 Current working directory: {__import__('os').getcwd()}")
+            
+            # Test basic functionality first
+            try:
+                print("📍 Testing Chrome binary availability...")
+                import subprocess
+                result = subprocess.run(['google-chrome', '--version'], 
+                                      capture_output=True, text=True, timeout=10)
+                print(f"📍 Chrome version: {result.stdout.strip()}")
+            except Exception as e:
+                print(f"⚠️ Chrome check failed: {e}")
             
             # Check if scraper initialized properly
             if not scraper.driver:
                 raise Exception("WebDriver failed to initialize")
             
+            print("📍 WebDriver initialized successfully")
             results = scraper.scrape_parts(license_plate, part_name)
             print(f"✅ Scrape completed for {license_plate}")
             

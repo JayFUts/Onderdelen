@@ -87,8 +87,14 @@ class OnderdelenLijnScraper:
         chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
         try:
-            service = Service(ChromeDriverManager().install())
+            print("📍 Installing ChromeDriver...")
+            driver_path = ChromeDriverManager().install()
+            print(f"📍 ChromeDriver path: {driver_path}")
+            
+            service = Service(driver_path)
+            print("📍 Creating Chrome WebDriver...")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            print("📍 Setting up WebDriver properties...")
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             self.wait = WebDriverWait(self.driver, self.timeout)
             print("✓ WebDriver geïnitialiseerd")
