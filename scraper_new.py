@@ -237,40 +237,40 @@ class OnderdelenLijnScraper:
         category_urls = []
         
         try:
-            # Zoek eerst naar alle links in de search-results-list
-            search_result_links = self.driver.find_elements(By.CSS_SELECTOR, ".search-results-list a")
+            # GEOPTIMALISEERD: Gebruik XPath om direct de juiste links te vinden
+            part_lower = part_name.lower()
             
-            if not search_result_links:
-                # Fallback: zoek in #parts .search-results-list a
-                search_result_links = self.driver.find_elements(By.CSS_SELECTOR, "#parts .search-results-list a")
+            # Bouw een slimme XPath die meerdere variaties probeert
+            xpath_patterns = [
+                # Exacte match in search-results-list
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]",
+                # Match zonder 's' (Velg vs Velgen)
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('s')}')]",
+                # Match zonder 'en' (Velg vs Velgen)  
+                f"//div[contains(@class, 'search-results-list')]//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower.rstrip('en')}')]",
+                # Fallback naar alle links met part name
+                f"//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_lower}')]"
+            ]
             
-            if not search_result_links:
-                # Fallback: zoek links met data-search attribute
-                search_result_links = self.driver.find_elements(By.CSS_SELECTOR, "a[data-search]")
-            
-            logging.info(f"  Gevonden {len(search_result_links)} category links op pagina")
-            
-            # Filter links die matchen met part_name
             matching_links = []
-            for link in search_result_links:
-                try:
-                    link_text = link.text.lower()
-                    part_lower = part_name.lower()
-                    
-                    # Check verschillende variaties
-                    if (part_lower in link_text or 
-                        link_text in part_lower or
-                        part_lower.rstrip('s') in link_text or  # "Velg" matches "Velgen"
-                        link_text.rstrip('s') in part_lower or  # "Velgen" matches "Velg"
-                        part_lower.rstrip('en') in link_text):  # "Velg" matches "Velgen"
-                        matching_links.append(link)
-                except:
-                    continue
             
-            if not matching_links:
-                # Nog breder zoeken in alle links die part_name bevatten
-                xpath_query = f"//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{part_name.lower()}')]"
-                matching_links = self.driver.find_elements(By.XPATH, xpath_query)
+            # Probeer elke XPath pattern totdat we matches vinden (met korte timeout)
+            short_wait = WebDriverWait(self.driver, 5)  # Korte timeout voor snelheid
+            
+            for i, xpath_pattern in enumerate(xpath_patterns):
+                try:
+                    logging.info(f"  Patroon {i+1}/{len(xpath_patterns)}: Zoeken naar '{part_name}'...")
+                    matches = short_wait.until(EC.presence_of_all_elements_located((By.XPATH, xpath_pattern)))
+                    if matches:
+                        matching_links = matches
+                        logging.info(f"  ✓ SNEL gevonden: {len(matching_links)} matches in patroon {i+1}")
+                        break
+                except TimeoutException:
+                    logging.info(f"  Patroon {i+1}: Geen matches (timeout na 5s)")
+                    continue
+                except Exception as e:
+                    logging.info(f"  Patroon {i+1}: Error - {e}")
+                    continue
             
             for link in matching_links:
                 try:
